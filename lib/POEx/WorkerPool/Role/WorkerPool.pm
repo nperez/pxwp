@@ -17,6 +17,17 @@ role POEx::WorkerPool::Role::WorkerPool
     use aliased 'POEx::WorkerPool::Worker';
     use aliased 'POEx::WorkerPool::Error::NoAvailableWorkers';
 
+=attr job_class is: ro, isa: ClassName, required: 1
+
+In order for the serializer on the other side of the process boundary to
+rebless jobs on the other side, it needs to make sure that class is loaded.
+
+This attribute is used to indicate which class needs to be loaded.
+
+=cut
+
+    has job_class => ( is => 'ro', isa => ClassName, required => 1);
+
 =attr queue_type is: ro, isa: enum([qw|round_robin fill_up|]), default: round_robin
 
 This attribute specifies the queue type for the WorkerPool and changes how
@@ -61,7 +72,7 @@ This attribute holds all of the workers in the pool
 
         for(0..$self->max_workers)
         {
-            push(@$workers, Worker->new());
+            push( @$workers, Worker->new( job_class => $self->job_class ) );
         }
 
         return $workers;
@@ -78,7 +89,7 @@ when it exceeds max_workers
     {
         if(++${$self->current_worker_index} > $self->max_workers - 1)
         {
-            $self->_clear_current_worker_index();
+            $self->clear_current_worker_index();
         }
         
         return ${$self->current_worker_index};
@@ -139,12 +150,24 @@ used to subscribe to various events that the worker fires.
 
 =cut
 
-    method queue_job(DoesJob $job) returns (SessionAlias)
+    method enqueue_job(DoesJob $job) returns (SessionAlias)
     {
         my $worker = $self->get_next_worker();
         $worker->enqueue_job($job);
         $worker->start_processing();
         return $worker->pubsub_alias;
+    }
+
+=method halt is Event
+
+This method will halt any active workers in the worker pool and force them to
+release resouces and clean up.
+
+=cut
+
+    method halt 
+    {
+        $_->halt() for (@{$self->workers});
     }
 }
 

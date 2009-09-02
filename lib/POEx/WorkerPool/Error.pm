@@ -19,3 +19,15 @@ A human readable error message
 1;
 
 __END__
+
+=head1 DESCRIPTION
+
+This is mostly a base class for other exeptions within POEx::WorkerPool.
+
+Please see any of the following for more information:
+
+    POEx::WorkerPool::Error::EnqueueError
+    POEx::WorkerPool::Error::JobError
+    POEx::WorkerPool::Error::NoAvailableWorkers
+    POEx::WorkerPool::Error::StartError
+

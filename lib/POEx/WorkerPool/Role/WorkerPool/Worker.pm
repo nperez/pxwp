@@ -8,13 +8,16 @@ role POEx::WorkerPool::Role::WorkerPool::Worker
 {
     with 'POEx::Role::SessionInstantiation';
   
-    use Data::UUID;
-
-    use POEx::Types(':all');
     use MooseX::Types::Moose(':all');
     use MooseX::Types::Structured(':all');
+    use POEx::Types(':all');
     use POEx::WorkerPool::Types(':all');
     use POEx::WorkerPool::WorkerEvents(':all');
+
+    use Data::UUID;
+    use POEx::PubSub;
+    use POE::Filter::Reference;
+    use POE::Wheel::Run;
 
     use POEx::WorkerPool::Worker::Guts;
     
@@ -27,6 +30,17 @@ role POEx::WorkerPool::Role::WorkerPool::Worker
     use aliased 'POEx::WorkerPool::Error::StartError';
     use aliased 'POEx::WorkerPool::Error::JobError';
     use aliased 'POEx::Role::Event';
+
+=attr job_class is: ro, isa: ClassName, required: 1
+
+In order for the serializer on the other side of the process boundary to
+rebless jobs on the other side, it needs to make sure that class is loaded.
+
+This attribute is used to indicate which class needs to be loaded.
+
+=cut
+
+    has job_class => ( is => 'ro', isa => ClassName, required => 1);
 
 =attr uuid is: ro, isa: Str
 
@@ -70,7 +84,7 @@ This private attribute holds the currently processing Job
 
 =cut
 
-    has _in_process => ( is => 'rw', isa => DoesJob ); 
+    has _in_process => ( is => 'rw', isa => DoesJob, clearer => '_clear_in_process'); 
 
 =attr _completed_jobs is: rw, isa: ScalarRef
 
@@ -136,25 +150,27 @@ child_wheel holds this Worker's POE::Wheel::Run instance
     has child_wheel => ( is => 'ro', isa => Wheel, lazy_build => 1 );
     method _build_child_wheel
     {
+        my $class = $self->job_class;
         my $wheel = POE::Wheel::Run->new
         (
             Program => sub 
             {
+                use Class::MOP;
                 # this little Kernel dance is required to get POE running in
                 # the subprocess and allow easy communication
                 POE::Kernel->stop();
-
-                Guts->new();
+                
+                Class::MOP::load_class($class);
+                POEx::WorkerPool::Worker::Guts->new();
 
                 POE::Kernel->run();
             },
             StdioFilter => POE::Filter::Reference->new(),
             StdoutEvent => 'guts_output',
             ErrorEvent  => 'guts_error_handler',
-        );
+        ) or Carp::confess('WTF?');
 
         $self->poe->kernel->sig_child($wheel->PID, 'guts_exited');
-
         return $wheel;
     }
 
@@ -185,7 +201,7 @@ to rebuild after exiting
     {
         $self->post
         (
-            $self->pubsub, +PXWP_WORKER_CHILD_ERROR,
+            $self->pubsub_alias, +PXWP_WORKER_CHILD_ERROR,
             worker_id => $self->ID,
             operation => $op,
             error_number => $error_num,
@@ -211,7 +227,7 @@ Subscribers will need to have the following signature:
         Int :$exit_value
     ) is Event
 
-The wheel will then cleared and another child process created
+The wheel will then cleared 
 
 =cut
 
@@ -219,14 +235,13 @@ The wheel will then cleared and another child process created
     {
         $self->post
         (
-            $self->pubsub, +PXWP_WORKER_CHILD_EXIT, 
+            $self->pubsub_alias, +PXWP_WORKER_CHILD_EXIT, 
             worker_id => $self->ID,
             process_id => $pid,
             exit_value => $exit_val
         );
 
         $self->clear_child_wheel();
-        $self->child_wheel();
     }
 
 =method after _start is Event
@@ -252,9 +267,10 @@ publish all of the various events that the Worker can fire.
         $self->call($alias, 'publish', event_name => +PXWP_JOB_PROGRESS);
         $self->call($alias, 'publish', event_name => +PXWP_JOB_FAILED);
         $self->call($alias, 'publish', event_name => +PXWP_JOB_START);
-        $self->call($alias, 'publish', event_name => +PXWP_JOB_COMPLETE);
 
         $self->alias('Worker:'.$self->uuid);
+
+        $self->child_wheel();
     }
 
 =method after _stop is Event
@@ -285,8 +301,10 @@ Subscribers will need to have the following signature:
 
 =cut
 
-    method enqueue_job(DoesJob $job)
+    method enqueue_job(DoesJob $job) is Event
     {
+        my $kernel = defined($self->poe->kernel) ? $self->poe->kernel : 'POE::Kernel';
+        
         if($self->is_active)
         {
             EnqueueError->throw({message => 'Queue is currently active'});
@@ -296,9 +314,9 @@ Subscribers will need to have the following signature:
         {
             $self->_enqueue_job($job);
             
-            $self->post
+            $kernel->post
             (
-                $self->pubsub, +PXWP_JOB_ENQUEUED, 
+                $self->pubsub_alias, +PXWP_JOB_ENQUEUED, 
                 worker_id => $self->ID,
                 job_id => $job->ID,
             );
@@ -317,16 +335,18 @@ jobs. Each job successfully enqueued means the worker will fire the
 
 =cut
 
-    method enqueue_jobs(ArrayRef[DoesJob] $jobs)
+    method enqueue_jobs(ArrayRef[DoesJob] $jobs) is Event
     {
+        my $kernel = defined($self->poe->kernel) ? $self->poe->kernel : 'POE::Kernel';
+        
         if(($self->count_jobs + @$jobs) <= $self->max_jobs)
         {
             map 
             {
                 $self->_enqueue_job($_); 
-                $self->post
+                $kernel->post
                 (
-                    $self->pubsub, +PXWP_JOB_ENQUEUED, 
+                    $self->pubsub_alias, +PXWP_JOB_ENQUEUED, 
                     worker_id => $self->ID,
                     job_id => $_->ID,
                 );
@@ -351,22 +371,24 @@ Subscribers should have the following signature:
 
 =cut
 
-    method start_processing
+    method start_processing is Event
     {
+        my $kernel = defined($self->poe->kernel) ? $self->poe->kernel : 'POE::Kernel';
+        
         if($self->count_jobs < 1)
         {
             StartError->throw({message => 'No jobs in queue' });
         }
-
-        $self->post
+        
+        $kernel->post
         (
-            $self->pubsub, +PXWP_START_PROCESSING, 
+            $self->pubsub_alias, +PXWP_START_PROCESSING, 
             worker_id => $self->ID,
             count_jobs => $self->count_jobs,
         );
         
         $self->status(1);
-        $self->yield('_process_queue');
+        $kernel->post($self->ID, '_process_queue');
     }
 
 =method _process_queue is Event
@@ -400,7 +422,7 @@ Worker may again accept jobs.
         {
             $self->post
             (
-                $self->pubsub, +PXWP_JOB_DEQUEUED, 
+                $self->pubsub_alias, +PXWP_JOB_DEQUEUED, 
                 worker_id => $self->ID,
                 job_id => $job->ID,
             );
@@ -411,15 +433,15 @@ Worker may again accept jobs.
         {
             $self->post
             (
-                $self->pubsub, +PXWP_STOP_PROCESSING,
+                $self->pubsub_alias, +PXWP_STOP_PROCESSING,
                 worker_id => $self->ID,
                 completed_jobs => ${$self->_completed_jobs},
                 failed_jobs => ${$self->_failed_jobs},
             );
 
             $self->status(0);
-            $self->clear__completed_jobs();
-            $self->clear__failed_jobs();
+            $self->_clear_completed_jobs();
+            $self->_clear_failed_jobs();
         }
     }
 
@@ -442,7 +464,7 @@ This event also places the given job into the _in_process attribute.
         {
             $self->post
             (
-                $self->pubsub, +PXWP_WORKER_INTERNAL_ERROR, 
+                $self->pubsub_alias, +PXWP_WORKER_INTERNAL_ERROR, 
                 worker_id => $self->ID,
                 msg => \'Child process was null',
             );
@@ -540,16 +562,16 @@ describes the potential events from the child and the actions taken
 
 =cut
 
-    method guts_output(JobStatus $job_status) is Event
+    method guts_output(JobStatus $job_status, WheelID $id) is Event
     {
         if($job_status->{type} eq +PXWP_JOB_COMPLETE)
         {
-            $self->clear__in_process();
+            $self->_clear_in_process();
             ${$self->_completed_jobs}++;
 
             $self->post
             (
-                $self->pubsub, +PXWP_JOB_COMPLETE,
+                $self->pubsub_alias, +PXWP_JOB_COMPLETE,
                 worker_id => $self->ID,
                 job_id => $job_status->{ID},
                 msg => $job_status->{msg},
@@ -561,7 +583,7 @@ describes the potential events from the child and the actions taken
         {
             $self->post
             (
-                $self->pubsub, +PXWP_JOB_PROGRESS,
+                $self->pubsub_alias, +PXWP_JOB_PROGRESS,
                 worker_id => $self->ID,
                 job_id => $job_status->{ID},
                 percent_complete => $job_status->{percent_complete},
@@ -570,13 +592,13 @@ describes the potential events from the child and the actions taken
         }
         elsif($job_status->{type} eq +PXWP_JOB_FAILED)
         {
-            $self->clear__in_process();
+            $self->_clear_in_process();
             
             ${$self->_failed_jobs}++;
             
             $self->post
             (
-                $self->pubsub, +PXWP_JOB_FAILED,
+                $self->pubsub_alias, +PXWP_JOB_FAILED,
                 worker_id => $self->ID,
                 job_id => $job_status->{ID},
                 msg => $job_status->{msg},
@@ -588,7 +610,7 @@ describes the potential events from the child and the actions taken
         {
             $self->post
             (
-                $self->pubsub, +PXWP_JOB_START, 
+                $self->pubsub_alias, +PXWP_JOB_START, 
                 worker_id => $self->ID,
                 job_id => $job_status->{ID},
             );
@@ -597,6 +619,20 @@ describes the potential events from the child and the actions taken
         {
             JobError->throw({message => 'Unknown job status', job => $self->_in_process, job_status => $job_status});
         }
+    }
+
+=method halt is Event
+
+halt will destroy the child process, and unset the associated alias ensuring 
+that the Session will stop
+
+=cut
+
+    method halt is Event
+    {
+        POE::Kernel->sig_child($self->child_wheel->PID);
+        $self->child_wheel->kill();
+        $self->clear_alias();
     }
 }
 

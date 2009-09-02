@@ -11,3 +11,6 @@ class POEx::WorkerPool::Error::StartError extends POEx::WorkerPool::Error
 
 1;
 __END__
+
+This exception is thrown when a Worker is told to start processing its queue
+but there are no items within the queue

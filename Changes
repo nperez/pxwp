@@ -1,0 +1,4 @@
+Revision history for {{ $dist->name }}: {{ $dist->version }}
+
+{{ $NEXT }}
+        Initial Release

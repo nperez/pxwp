@@ -70,7 +70,7 @@ Must compose the POEx::WorkerPool::Role::WorkerPool::Job role.
 
 subtype DoesJob,
     as 'Moose::Object',
-    where { $_->does('POEx::WorkerPool::Role::WorkerPool::Job') };
+    where { $_->does('POEx::WorkerPool::Role::Job') };
 
 =head2 WorkerEvent
 

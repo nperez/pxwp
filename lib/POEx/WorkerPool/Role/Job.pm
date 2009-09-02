@@ -89,34 +89,35 @@ A simple convenience method to check if the job has multiple steps
 =method execute_step returns (JobStatus)
 
 execute_step dequeues a step from steps and executes it, building a proper 
-JobStatus return value. If there is an exception it builds throws a JobError
+JobStatus return value. 
 
 =cut
     method execute_step returns (JobStatus)
     {
+        my $status;
+
         if($self->count_steps <= 0)
         {
-            JobError->throw
-            (
-                {
-                    job => $self, 
-                    job_status => 
-                    {
-                        type => +PXWP_JOB_FAILED,
-                        ID => $self->ID,
-                        msg => \'Malformed job. No steps',
-                    }
-                }
-            );
+            $status =
+            {
+                type => +PXWP_JOB_FAILED,
+                ID => $self->ID,
+                msg => \'Malformed job. No steps',
+            };
+
+            return $status;
         }
+        
+
+        my $step = $self->dequeue_step();
+        my $val;
 
         try
         {
-            my $step = $self->dequeue_step();
-            my $val = $step->[0]->(@{$step->[1]});
+            $val = $step->[0]->(@{$step->[1]});
             if($self->count_steps > 0)
             {
-                return 
+                $status =
                 {
                     type => +PXWP_JOB_PROGRESS,
                     ID => $self->ID,
@@ -126,30 +127,25 @@ JobStatus return value. If there is an exception it builds throws a JobError
             }
             else
             {
-                return
+                $status =
                 {
                     type => +PXWP_JOB_COMPLETE,
                     ID => $self->ID,
                     msg => \$val,
                 };
             }
-
         }
         catch ($error)
         {
-            JobError->throw
-            (
-                {
-                    job => $self,
-                    job_status =>
-                    {
-                        type => +PXWP_JOB_FAILED,
-                        ID => $self->ID,
-                        msg => \$error
-                    }
-                }
-            );
+            $status =
+            {
+                type => +PXWP_JOB_FAILED,
+                ID => $self->ID,
+                msg => \$error
+            };
         }
+
+        return $status;
     }
 }
 
