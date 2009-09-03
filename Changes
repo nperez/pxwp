@@ -1,6 +1,9 @@
-Revision history for {{ $dist->name }}: {{ $dist->version }}
+Revision history for POEx-WorkerPool: {{ $dist->version }}
 
 {{ $NEXT }}
+        Update PubSub dep so we make sure we have the right POE version
+
+0.092460  2009-09-03 15:49:27 UTC
         Update dependencies to include Throwable which wasn't inclued before
 
 0.092450  2009-09-02 23:57:01 UTC
