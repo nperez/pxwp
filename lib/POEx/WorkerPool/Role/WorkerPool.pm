@@ -78,6 +78,13 @@ This attribute holds all of the workers in the pool
         return $workers;
     }
 
+    method BUILDARGS (ClassName $class: @args)
+    {
+        my %retargs = @args;
+        Class::MOP::load_class($retargs{job_class});
+        return \%retargs;
+    }
+
 =method incr_worker_index returns Int
 
 This is a convenience method for incrementing the index and wrapping around
