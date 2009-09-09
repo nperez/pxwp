@@ -1,6 +1,9 @@
 Revision history for POEx-WorkerPool: {{ $dist->version }}
 
 {{ $NEXT }}
+        Provide the mechanism to say what the max number of jobs a worker queue can have
+
+0.092510  2009-09-08 20:41:58 UTC
         Update PubSub dep so we make sure we have the right POE version
 
 0.092460  2009-09-03 15:49:27 UTC

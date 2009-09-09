@@ -35,7 +35,7 @@ class MyTester
     use POEx::WorkerPool;
     
     has pool => ( is => 'ro', isa => DoesWorkerPool, lazy_build => 1 );
-    method _build_pool { POEx::WorkerPool->new( job_class => 'MyJob' ) }
+    method _build_pool { POEx::WorkerPool->new( job_class => 'MyJob', max_jobs_per_worker => 1 ) }
 
     after _start is Event
     {

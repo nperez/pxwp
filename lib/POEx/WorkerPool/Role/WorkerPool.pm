@@ -72,11 +72,27 @@ This attribute holds all of the workers in the pool
 
         for(0..$self->max_workers)
         {
-            push( @$workers, Worker->new( job_class => $self->job_class ) );
+            push
+            (
+                @$workers, 
+                Worker->new
+                (
+                    job_class => $self->job_class,
+                    max_jobs => $self->max_jobs_per_worker,
+                ) 
+            );
         }
 
         return $workers;
     }
+
+=attr max_jobs_per_worker is: ro, isa: Int, default: 5
+
+This attribute let's the workers know how many jobs their queue can hold
+
+=cut
+
+    has max_jobs_per_worker => ( is => 'ro', isa => Int, default => 5 );
 
     method BUILDARGS (ClassName $class: @args)
     {
