@@ -106,40 +106,40 @@ class MyTester
         diag("Worker($worker_id) has started processing its $count_jobs jobs\n");
     }
     
-    method job_dequeued (SessionID :$worker_id, Str :$job_id) is Event
+    method job_dequeued (SessionID :$worker_id, DoesJob :$job) is Event
     {
         $dequeues++;
-        pass("Worker($worker_id) dequeued Job($job_id)\n");
-        diag("Worker($worker_id) dequeued Job($job_id)\n");
+        pass("Worker($worker_id) dequeued Job(${\$job->ID})\n");
+        diag("Worker($worker_id) dequeued Job(${\$job->ID})\n");
     }
     
-    method job_enqueued (SessionID :$worker_id, Str :$job_id) is Event
+    method job_enqueued (SessionID :$worker_id, DoesJob :$job) is Event
     {
         $enqueues++;
-        pass("Worker($worker_id) queued Job($job_id)\n");
-        diag("Worker($worker_id) queued Job($job_id)\n");
+        pass("Worker($worker_id) queued Job(${\$job->ID})\n");
+        diag("Worker($worker_id) queued Job(${\$job->ID})\n");
     }
 
-    method job_start (SessionID :$worker_id, Str :$job_id) is Event
+    method job_start (SessionID :$worker_id, DoesJob :$job) is Event
     {
         $starts++;
-        pass("Worker($worker_id) has started Job($job_id)\n");
-        diag("Worker($worker_id) has started Job($job_id)\n");
+        pass("Worker($worker_id) has started Job(${\$job->ID})\n");
+        diag("Worker($worker_id) has started Job(${\$job->ID})\n");
     }
 
     
-    method job_complete (SessionID :$worker_id, Str :$job_id, Ref :$msg) is Event
+    method job_complete (SessionID :$worker_id, DoesJob :$job, Ref :$msg) is Event
     {
         $completes++;
-        pass("Worker($worker_id) finished Job($job_id)\n");
-        diag("Worker($worker_id) finished Job($job_id)\n");
+        pass("Worker($worker_id) finished Job(${\$job->ID})\n");
+        diag("Worker($worker_id) finished Job(${\$job->ID})\n");
     }
 
-    method job_progress (SessionID :$worker_id, Str :$job_id, Int :$percent_complete, Ref :$msg) is Event
+    method job_progress (SessionID :$worker_id, DoesJob :$job, Int :$percent_complete, Ref :$msg) is Event
     {
         $progresses++;
-        pass("Worker($worker_id) is %$percent_complete with Job($job_id)");
-        diag("Worker($worker_id) is %$percent_complete with Job($job_id)");
+        pass("Worker($worker_id) is %$percent_complete with Job(${\$job->ID})");
+        diag("Worker($worker_id) is %$percent_complete with Job(${\$job->ID})");
     }
 
     method subscribe_to_worker(SessionRefIdAliasInstantiation $alias)

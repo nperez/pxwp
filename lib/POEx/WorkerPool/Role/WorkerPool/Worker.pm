@@ -297,7 +297,7 @@ success.
 
 Subscribers will need to have the following signature:
 
-    method handler (SessionID :$worker_id, Str $job_id) is Event
+    method handler (SessionID :$worker_id, DoesJob $job ) is Event
 
 =cut
 
@@ -318,7 +318,7 @@ Subscribers will need to have the following signature:
             (
                 $self->pubsub_alias, +PXWP_JOB_ENQUEUED, 
                 worker_id => $self->ID,
-                job_id => $job->ID,
+                job => $job,
             );
         }
         else
@@ -348,7 +348,7 @@ jobs. Each job successfully enqueued means the worker will fire the
                 (
                     $self->pubsub_alias, +PXWP_JOB_ENQUEUED, 
                     worker_id => $self->ID,
-                    job_id => $_->ID,
+                    job => $_,
                 );
             }
             @$jobs;
@@ -397,7 +397,7 @@ This private event is the queue processor. As jobs are dequeued for processing,
 +PXWP_JOB_DEQUEUED will be fired via PubSub. Subscribers will need the
 following signature:
 
-    method handler(SessionID :$worker_id, Str :$job_id) is Event
+    method handler(SessionID :$worker_id, DoesJob :$job) is Event
 
 Once the queue has been depleted +PXWP_STOP_PROCESSING will be fired via
 PubSub. Subscribers will need the following signature:
@@ -424,7 +424,7 @@ Worker may again accept jobs.
             (
                 $self->pubsub_alias, +PXWP_JOB_DEQUEUED, 
                 worker_id => $self->ID,
-                job_id => $job->ID,
+                job => $job,
             );
             
             $self->yield('_process_job', $job);
@@ -493,7 +493,7 @@ describes the potential events from the child and the actions taken
         +PXWP_JOB_COMPLETE
     
     PubSub Signature:
-        method handler(SessionID :$worker_id, Str :$job_id, Ref :$msg)
+        method handler(SessionID :$worker_id, DoesJob :$job, Ref :$msg)
 
     Notes:
         The :$msg argument will contain the output from the Job's execution
@@ -512,7 +512,7 @@ describes the potential events from the child and the actions taken
         method handler
         (
             SessionID :$worker_id, 
-            Str :$job_id, 
+            DoesJob :$job, 
             Int :$percent_complete,
             Ref :$msg,
         )
@@ -533,7 +533,7 @@ describes the potential events from the child and the actions taken
         +PXWP_JOB_FAILED
     
     PubSub Signature:
-        method handler(SessionID :$worker_id, Str :$job_id, Ref :$msg)
+        method handler(SessionID :$worker_id, DoesJob :$job, Ref :$msg)
 
     Notes:
         The :$msg argument will contain the exception generated from the Job
@@ -552,7 +552,7 @@ describes the potential events from the child and the actions taken
         method handler
         (
             SessionID :$worker_id, 
-            Str :$job_id, 
+            DoesJob :$job, 
         )
 
     Notes:
@@ -566,16 +566,16 @@ describes the potential events from the child and the actions taken
     {
         if($job_status->{type} eq +PXWP_JOB_COMPLETE)
         {
-            $self->_clear_in_process();
-            ${$self->_completed_jobs}++;
-
             $self->post
             (
                 $self->pubsub_alias, +PXWP_JOB_COMPLETE,
                 worker_id => $self->ID,
-                job_id => $job_status->{ID},
+                job => $self->_in_process,
                 msg => $job_status->{msg},
             );
+            
+            $self->_clear_in_process();
+            ${$self->_completed_jobs}++;
 
             $self->yield('_process_queue');
         }
@@ -585,24 +585,23 @@ describes the potential events from the child and the actions taken
             (
                 $self->pubsub_alias, +PXWP_JOB_PROGRESS,
                 worker_id => $self->ID,
-                job_id => $job_status->{ID},
+                job => $self->_in_process,
                 percent_complete => $job_status->{percent_complete},
                 msg => $job_status->{msg},
             );
         }
         elsif($job_status->{type} eq +PXWP_JOB_FAILED)
         {
-            $self->_clear_in_process();
-            
-            ${$self->_failed_jobs}++;
-            
             $self->post
             (
                 $self->pubsub_alias, +PXWP_JOB_FAILED,
                 worker_id => $self->ID,
-                job_id => $job_status->{ID},
+                job => $self->_in_process,
                 msg => $job_status->{msg},
             );
+            
+            $self->_clear_in_process();
+            ${$self->_failed_jobs}++;
             
             $self->yield('_process_queue');
         }
@@ -612,7 +611,7 @@ describes the potential events from the child and the actions taken
             (
                 $self->pubsub_alias, +PXWP_JOB_START, 
                 worker_id => $self->ID,
-                job_id => $job_status->{ID},
+                job => $self->_in_process,
             );
         }
         else
