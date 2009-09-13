@@ -31,16 +31,16 @@ role POEx::WorkerPool::Role::WorkerPool::Worker
     use aliased 'POEx::WorkerPool::Error::JobError';
     use aliased 'POEx::Role::Event';
 
-=attr job_class is: ro, isa: ClassName, required: 1
+=attr job_classes is: ro, isa: ArrayRef[ClassName], required: 1
 
 In order for the serializer on the other side of the process boundary to
-rebless jobs on the other side, it needs to make sure that class is loaded.
+rebless jobs on the other side, it needs to make sure those classes are loaded.
 
-This attribute is used to indicate which class needs to be loaded.
+This attribute is used to indicate which classes need to be loaded.
 
 =cut
 
-    has job_class => ( is => 'ro', isa => ClassName, required => 1);
+    has job_classes => ( is => 'ro', isa => ArrayRef[ClassName], required => 1);
 
 =attr uuid is: ro, isa: Str
 
@@ -150,7 +150,7 @@ child_wheel holds this Worker's POE::Wheel::Run instance
     has child_wheel => ( is => 'ro', isa => Wheel, lazy_build => 1 );
     method _build_child_wheel
     {
-        my $class = $self->job_class;
+        my $classes = $self->job_classes;
         my $wheel = POE::Wheel::Run->new
         (
             Program => sub 
@@ -160,7 +160,7 @@ child_wheel holds this Worker's POE::Wheel::Run instance
                 # the subprocess and allow easy communication
                 POE::Kernel->stop();
                 
-                Class::MOP::load_class($class);
+                Class::MOP::load_class($_) for @$classes;
                 POEx::WorkerPool::Worker::Guts->new();
 
                 POE::Kernel->run();
@@ -267,8 +267,11 @@ publish all of the various events that the Worker can fire.
         $self->call($alias, 'publish', event_name => +PXWP_JOB_PROGRESS);
         $self->call($alias, 'publish', event_name => +PXWP_JOB_FAILED);
         $self->call($alias, 'publish', event_name => +PXWP_JOB_START);
+        $self->call($alias, 'publish', event_name => +PXWP_WORKER_ERROR);
 
         $self->alias('Worker:'.$self->uuid);
+
+        $self->poe->kernel->sig('DIE', 'die_signal_handler');
 
         $self->child_wheel();
     }
@@ -506,7 +509,7 @@ describes the potential events from the child and the actions taken
         PubSub event posted.
     
     PubSub Event:
-        +PXWP_JOB_COMPLETE
+        +PXWP_JOB_PROGRESS
     
     PubSub Signature:
         method handler
@@ -614,6 +617,18 @@ describes the potential events from the child and the actions taken
                 job => $self->_in_process,
             );
         }
+        elsif($job_status->{type} eq +PXWP_WORKER_INTERNAL_ERROR)
+        {
+            $self->post
+            (
+                $self->pubsub_alias, +PXWP_WORKER_INTERNAL_ERROR,
+                worker_id => $self->ID,
+                job => $self->_in_process,
+                msg => $job_status->{msg},
+            );
+
+            $self->halt();
+        }
         else
         {
             JobError->throw({message => 'Unknown job status', job => $self->_in_process, job_status => $job_status});
@@ -632,6 +647,32 @@ that the Session will stop
         POE::Kernel->sig_child($self->child_wheel->PID);
         $self->child_wheel->kill();
         $self->clear_alias();
+    }
+
+=method die_signal_handler(Str $sig, HashRef) is Event
+
+This is the handler for any exceptions that are thrown. All exceptions will be
+relayed to the consumer via a PubSub published event: +PXWP_WORKER_ERROR
+
+Subscribers will need the following signature:
+
+    method handler(SessionID :$worker_id, IsaError :$exception, HashRef :$original) is Event
+
+Note that $original will be what was given to us from POE
+
+=cut
+
+    method die_signal_handler(Str $sig, HashRef $error) is Event
+    {
+        $self->poe->kernel->sig_handled();
+
+        $self->poe->kernel->post
+        (
+            $self->pubsub_alias, +PXWP_WORKER_ERROR,
+            worker_id => $self->ID,
+            exception => $error->{error_str},
+            original => $error,
+        );
     }
 }
 

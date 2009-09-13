@@ -27,6 +27,7 @@ use MooseX::Types -declare =>
     'WorkerEvent',
     'JobStatus',
     'JobStep',
+    'IsaError',
 ];
 
 
@@ -94,6 +95,7 @@ subtype WorkerEvent,
             +PXWP_JOB_FAILED,
             +PXWP_JOB_START,
             +PXWP_JOB_COMPLETE,
+            +PXWP_WORKER_ERROR,
         ]
     );
 
@@ -141,6 +143,15 @@ of arguments to be passed to the code ref verbatim.
 
 subtype JobStep,
     as Tuple[CodeRef, ArrayRef];
+
+=head2 IsaError
+
+This is a convenience constraint that checks if the object inherits from Error
+
+=cut
+
+subtype IsaError,
+    as class_type('POEx::WorkerPool::Error');
 
 1;
 __END__

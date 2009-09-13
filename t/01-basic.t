@@ -1,13 +1,16 @@
 BEGIN
 {
-    sub POE::Kernel::CATCH_EXCEPTIONS () { 0 }
+    sub POE::Kernel::CATCH_EXCEPTIONS () { 1 }
+#    sub POE::Kernel::TRACE_EVENTS () { 1 }
+#    sub POE::Kernel::TRACE_FILENAME () { 'test_trace' }
 }
 use Test::More;
 use MooseX::Declare;
 use POE;
 
 my $steps = 5;
-my $jobs = 5;
+my $good = 5;
+my $bad = 2;
 my $starts = 0;
 my $completes = 0;
 my $progresses = 0;
@@ -25,25 +28,55 @@ class MyTester
     use lib "$FindBin::Bin/lib";
     
     use MyJob steps => 5;
+    use FailJob steps => 5;
 
     use Test::More;
     
     use POEx::Types(':all');
     use POEx::WorkerPool::Types(':all');
     use POEx::WorkerPool::WorkerEvents(':all');
+    use MooseX::Types::Moose(':all');
 
     use POEx::WorkerPool;
+
+    use aliased 'POEx::WorkerPool::Error::EnqueueError';
     
+    has found_error => ( is => 'rw', isa => ScalarRef, default => sub { my $i = 1; \$i; } );
+
     has pool => ( is => 'ro', isa => DoesWorkerPool, lazy_build => 1 );
-    method _build_pool { POEx::WorkerPool->new( job_class => 'MyJob', max_jobs_per_worker => 1 ) }
+    method _build_pool
+    {
+        POEx::WorkerPool->new
+        (
+            max_workers => $good + $bad, 
+            job_classes => ['MyJob', 'FailJob'], 
+            max_jobs_per_worker => 1 
+        ); 
+    }
 
     after _start is Event
     {
-        for(1..$jobs)
+        for(1..$good)
         {
-            my $alias = $self->pool->enqueue_job(MyJob->new());
-            $self->subscribe_to_worker($alias);
+            $self->subscribe_to_worker($self->pool->enqueue_job(MyJob->new()));
         }
+
+        for(1..$bad)
+        {
+            $self->subscribe_to_worker($self->pool->enqueue_job(FailJob->new()));
+        }
+        
+        my $worker = $self->pool->workers->[0];
+        my ($alias, $pubsub) = ($worker->alias, $worker->pubsub_alias);
+
+        $self->call($pubsub, 'subscribe', event_name => +PXWP_WORKER_ERROR, event_handler => 'error_handler');
+        $self->post($alias, 'enqueue_job', MyJob->new());
+        
+    }
+
+    method error_handler(SessionID :$worker_id, IsaError :$exception, HashRef :$original) is Event
+    {
+        ok($exception->isa(EnqueueError), 'We successfully got the enqueue error exception');
     }
 
     method bailout_worker_child_err
@@ -76,24 +109,31 @@ class MyTester
         $self->pool()->halt();
         BAIL_OUT('FAILURE STATE');
     }
-    method bailout_job_failed is Event
+
+    method job_failed (SessionID :$worker_id, DoesJob :$job, Ref :$msg) is Event
     {
-        fail('PXWP_JOB_FAILED');
-        $self->pool()->halt();
-        BAIL_OUT('FAILURE STATE');
+        if(${$self->found_error} > $bad)
+        {
+            fail("Found more than $bad error(s)");
+            $self->pool()->halt();
+            BAIL_OUT('FAILURE STATE');
+        }
+
+        diag("Job(${\$job->ID}) failed with: $$msg");
+        isa_ok($job, 'FailJob', 'Got the right job');
+        ${$self->found_error}++;
     }
 
     method worker_stop_processing (SessionID :$worker_id, Int :$completed_jobs, Int :$failed_jobs) is Event
     {
         $worker_stops++;
-        is($failed_jobs, 0, 'Completed all jobs without failures');
         pass("Worker($worker_id) has finished processing its jobs. Complete: $completed_jobs, Failed: $failed_jobs\n");
         diag("Worker($worker_id) has finished processing its jobs. Complete: $completed_jobs, Failed: $failed_jobs\n");
 
         my $alias = $self->poe->kernel->ID_id_to_session($worker_id)->pubsub_alias;
         $self->unsubscribe_to_worker($alias);
         
-        if($worker_stops == $jobs)
+        if($worker_stops == ($good + $bad))
         {
             $self->pool->halt();
         }
@@ -153,7 +193,7 @@ class MyTester
         $self->call($alias, 'subscribe', event_name => +PXWP_WORKER_INTERNAL_ERROR, event_handler => 'bailout_worker_internal');
         $self->call($alias, 'subscribe', event_name => +PXWP_JOB_COMPLETE, event_handler => 'job_complete');
         $self->call($alias, 'subscribe', event_name => +PXWP_JOB_PROGRESS, event_handler => 'job_progress');
-        $self->call($alias, 'subscribe', event_name => +PXWP_JOB_FAILED, event_handler => 'bailout_job_failed');
+        $self->call($alias, 'subscribe', event_name => +PXWP_JOB_FAILED, event_handler => 'job_failed');
         $self->call($alias, 'subscribe', event_name => +PXWP_JOB_START, event_handler => 'job_start');
     }
     
@@ -176,12 +216,12 @@ class MyTester
 my $tester = MyTester->new();
 POE::Kernel->run();
 
-is($starts, $jobs , 'Right number of starts');
-is($completes, $jobs, 'Right number of completes');
-is($progresses, $jobs * ($steps - 1), 'Right number of progresses');
-is($enqueues, $jobs, 'Right number of enqueues');
-is($dequeues, $jobs, 'Right number of dequeues');
-is($worker_starts, $jobs, 'Right number of worker starts');
-is($worker_stops, $jobs, 'Right number of worker stops');
+is($starts, $good + $bad , 'Right number of starts');
+is($completes, $good, 'Right number of completes');
+is($progresses, ($good * ($steps - 1)) + $bad, 'Right number of progresses');
+is($enqueues, $good + $bad, 'Right number of enqueues');
+is($dequeues, $good + $bad, 'Right number of dequeues');
+is($worker_starts, $good + $bad, 'Right number of worker starts');
+is($worker_stops, $good + $bad, 'Right number of worker stops');
 
 done_testing();

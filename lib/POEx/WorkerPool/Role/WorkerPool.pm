@@ -17,16 +17,17 @@ role POEx::WorkerPool::Role::WorkerPool
     use aliased 'POEx::WorkerPool::Worker';
     use aliased 'POEx::WorkerPool::Error::NoAvailableWorkers';
 
-=attr job_class is: ro, isa: ClassName, required: 1
+=attr job_classes is: ro, isa: ArrayRef[ClassName], required: 1
 
 In order for the serializer on the other side of the process boundary to
-rebless jobs on the other side, it needs to make sure that class is loaded.
+rebless jobs on the other side, it needs to make sure that the classes are 
+loaded.
 
-This attribute is used to indicate which class needs to be loaded.
+This attribute is used to indicate which classes need to be loaded.
 
 =cut
 
-    has job_class => ( is => 'ro', isa => ClassName, required => 1);
+    has job_classes => ( is => 'ro', isa => ArrayRef[ClassName], required => 1);
 
 =attr queue_type is: ro, isa: enum([qw|round_robin fill_up|]), default: round_robin
 
@@ -77,7 +78,7 @@ This attribute holds all of the workers in the pool
                 @$workers, 
                 Worker->new
                 (
-                    job_class => $self->job_class,
+                    job_classes => $self->job_classes,
                     max_jobs => $self->max_jobs_per_worker,
                 ) 
             );
@@ -97,7 +98,7 @@ This attribute let's the workers know how many jobs their queue can hold
     method BUILDARGS (ClassName $class: @args)
     {
         my %retargs = @args;
-        Class::MOP::load_class($retargs{job_class});
+        Class::MOP::load_class($_) for @{$retargs{job_classes}};
         return \%retargs;
     }
 

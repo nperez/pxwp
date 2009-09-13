@@ -20,6 +20,7 @@ use constant
     PXWP_JOB_PROGRESS           => 'PXWP_JOB_PROGRESS',
     PXWP_JOB_FAILED             => 'PXWP_JOB_FAILED',
     PXWP_JOB_START              => 'PXWP_JOB_START',
+    PXWP_WORKER_ERROR           => 'PXWP_WORKER_ERROR',
 };
 
 use Sub::Exporter -setup => 
@@ -38,6 +39,7 @@ use Sub::Exporter -setup =>
             PXWP_JOB_PROGRESS
             PXWP_JOB_FAILED
             PXWP_JOB_START
+            PXWP_WORKER_ERROR
         /
     ] 
 };
@@ -66,6 +68,7 @@ on signatures required for each event
     PXWP_JOB_FAILED
     PXWP_JOB_START
     PXWP_JOB_COMPLETE
+    PXWP_WORKER_ERROR
 
 =cut
 
