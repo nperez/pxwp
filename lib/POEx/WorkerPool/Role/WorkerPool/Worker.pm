@@ -644,7 +644,6 @@ that the Session will stop
 
     method halt is Event
     {
-        POE::Kernel->sig_child($self->child_wheel->PID);
         $self->child_wheel->kill();
         $self->clear_alias();
     }
