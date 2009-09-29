@@ -29,6 +29,17 @@ This attribute is used to indicate which classes need to be loaded.
 
     has job_classes => ( is => 'ro', isa => ArrayRef[ClassName], required => 1);
 
+=attr options is: ro, isa: HashRef
+
+options is the same options that would be passed to Sessions. Setting trace to
+1 will allow tracing for the Workers.
+
+    POEx::WorkerPool->new(options => { trace => 1 });
+
+=cut
+
+    has options => ( is => 'ro', isa => HashRef );
+
 =attr queue_type is: ro, isa: enum([qw|round_robin fill_up|]), default: round_robin
 
 This attribute specifies the queue type for the WorkerPool and changes how
@@ -80,6 +91,7 @@ This attribute holds all of the workers in the pool
                 (
                     job_classes => $self->job_classes,
                     max_jobs => $self->max_jobs_per_worker,
+                    options => $self->options,
                 ) 
             );
         }

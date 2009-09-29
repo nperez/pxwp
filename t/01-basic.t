@@ -1,6 +1,6 @@
 BEGIN
 {
-    sub POE::Kernel::CATCH_EXCEPTIONS () { 1 }
+#    sub POE::Kernel::CATCH_EXCEPTIONS () { 1 }
 #    sub POE::Kernel::TRACE_EVENTS () { 1 }
 #    sub POE::Kernel::TRACE_FILENAME () { 'test_trace' }
 }
@@ -50,7 +50,8 @@ class MyTester
         (
             max_workers => $good + $bad, 
             job_classes => ['MyJob', 'FailJob'], 
-            max_jobs_per_worker => 1 
+            max_jobs_per_worker => 1,
+            options => $self->options,
         ); 
     }
 
@@ -213,7 +214,7 @@ class MyTester
     }
 }
 
-my $tester = MyTester->new();
+my $tester = MyTester->new(options => { trace => 0 });
 POE::Kernel->run();
 
 is($starts, $good + $bad , 'Right number of starts');
