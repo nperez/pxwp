@@ -1,6 +1,18 @@
 Revision history for POEx-WorkerPool: {{ $dist->version }}
 
 {{ $NEXT }}
+        Abstract the loading of the Guts out to GutsLoader
+            to allow customization
+
+0.092650  2009-09-22 21:52:57 UTC
+        Address child reaping so that things get cleaned up appropriately
+
+0.092560  2009-09-13 20:23:00 UTC
+        Revamp the error handling
+        Add a new event to the pubsub interface
+        Bump the version of TryCatch to fix bugs regarding context and returns
+
+0.092530  2009-09-10 16:59:58 UTC
         Change the pubsub API to return the actual job instead of just the job id
 
 0.092520  2009-09-09 06:39:15 UTC
