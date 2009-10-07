@@ -6,19 +6,8 @@ use MooseX::Declare;
 
 class POEx::WorkerPool::Worker::Guts
 {
+    with 'MooseX::CompileTime::Traits';
     with 'POEx::WorkerPool::Role::WorkerPool::Worker::Guts';
-    method import (ClassName $class: ArrayRef[ClassName] :$traits?)
-    {
-        if(defined($traits))
-        {
-            POEx::WorkerPool::Worker::Guts->meta->make_mutable;
-            foreach my $trait (@$traits)
-            {
-                with $trait;
-            }
-            POEx::WorkerPool::Worker::Guts->meta->make_immutable;
-        }
-    }
 }
 
 1;
