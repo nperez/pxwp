@@ -1,6 +1,9 @@
 Revision history for POEx-WorkerPool: {{ $dist->version }}
 
 {{ $NEXT }}
+        Switch from custom import methods to using MooseX::CompileTime::Traits
+
+0.092720  2009-09-29 14:15:24 UTC
         Abstract the loading of the Guts out to GutsLoader
             to allow customization
 
