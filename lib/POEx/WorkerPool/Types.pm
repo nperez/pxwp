@@ -31,9 +31,7 @@ use MooseX::Types -declare =>
 ];
 
 
-=head1 TYPES
-
-=head2 DoesWorker
+=type DoesWorker
 
 Must compose the POEx::WorkerPool::Role::WorkerPool::Worker role.
 
@@ -43,7 +41,7 @@ subtype DoesWorker,
     as 'Moose::Object',
     where { $_->does('POEx::WorkerPool::Role::WorkerPool::Worker') };
 
-=head2 DoesWorkerPool
+=type DoesWorkerPool
 
 Must compose the POEx::WorkerPool::Role::WorkerPool role.
 
@@ -53,7 +51,7 @@ subtype DoesWorkerPool,
     as 'Moose::Object',
     where { $_->does('POEx::WorkerPool::Role::WorkerPool') };
 
-=head2 DoesWorkerGuts
+=type DoesWorkerGuts
 
 Must compose the POEx::WorkerPool::Role::WorkerPool::Worker::Guts role.
 
@@ -63,7 +61,7 @@ subtype DoesWorkerGuts,
     as 'Moose::Object',
     where { $_->does('POEx::WorkerPool::Role::WorkerPool::Worker::Guts') };
 
-=head2 DoesJob
+=type DoesJob
 
 Must compose the POEx::WorkerPool::Role::WorkerPool::Job role.
 
@@ -73,7 +71,7 @@ subtype DoesJob,
     as 'Moose::Object',
     where { $_->does('POEx::WorkerPool::Role::Job') };
 
-=head2 WorkerEvent
+=type WorkerEvent
 
 Must be one of the worker events defined in POEx::WorkerPool::WorkerEvents
 
@@ -99,7 +97,7 @@ subtype WorkerEvent,
         ]
     );
 
-=head2 JobStatus
+=type JobStatus
 
 JobStatus is what a Worker::Guts composed object must return. It consistes of 
 a hash with three keys and potential forth depending on type. See below:
@@ -121,7 +119,7 @@ subtype JobStatus,
         type => WorkerEvent,
         ID => Str,
         msg => Ref,
-        percent_complete => Maybe[Int]
+        percent_complete => Optional[Maybe[Int]]
     ],
     where
     {
@@ -133,7 +131,7 @@ subtype JobStatus,
         return 1;
     };
 
-=head2 JobStep
+=type JobStep
 
 When constructing Jobs, each step must match a Tuple[CodeRef, ArrayRef] where
 the code ref is the actual thing to execute and the array ref is the collection
@@ -144,7 +142,7 @@ of arguments to be passed to the code ref verbatim.
 subtype JobStep,
     as Tuple[CodeRef, ArrayRef];
 
-=head2 IsaError
+=type IsaError
 
 This is a convenience constraint that checks if the object inherits from Error
 

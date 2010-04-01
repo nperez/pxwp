@@ -1,6 +1,10 @@
 Revision history for POEx-WorkerPool: {{ $dist->version }}
 
 {{ $NEXT }}
+        Revamp distribution and docs to make use of modern Dist::Zilla tools (such as Pod::Weaver)
+        Clear out bitrot from old MooseX::Types::Structured behaviors
+
+0.092800  2009-10-07 21:24:09 UTC
         Switch from custom import methods to using MooseX::CompileTime::Traits
 
 0.092720  2009-09-29 14:15:24 UTC

@@ -1,4 +1,4 @@
-{package POEx::WorkerPool::Role::WorkerPool::Worker::GutsLoader;}
+package POEx::WorkerPool::Role::WorkerPool::Worker::GutsLoader;
 
 #ABSTRACT: Implementation role of the Guts loader
 
@@ -12,7 +12,9 @@ role POEx::WorkerPool::Role::WorkerPool::Worker::GutsLoader
     use MooseX::Types;
     use MooseX::Types::Moose(':all');
 
-=attr job_classes is: ro, isa: ArrayRef[ClassName], required: 1
+=attribute_public job_classes
+
+ is: ro, isa: ArrayRef[ClassName], required: 1
 
 These are the job classes should be loaded during init using
 Class::MOP::load_class
@@ -21,7 +23,9 @@ Class::MOP::load_class
 
     has job_classes => ( is => 'ro', isa => ArrayRef[ClassName], required => 1 );
 
-=attr init is: ro, isa: CodeRef, lazy_build: 1
+=attribute_public init
+
+ is: ro, isa: CodeRef, lazy_build: 1
 
 This holds the coderef that will be executed first to do any intitialization
 prior to building the Guts session
@@ -30,7 +34,9 @@ prior to building the Guts session
 
     has init => ( is => 'ro', isa => CodeRef, lazy_build => 1 );
 
-=attr preamble is: ro, isa: CodeRef, lazy_build: 1
+=attribute_public preamble
+
+ is: ro, isa: CodeRef, lazy_build: 1
 
 This holds the coderef that is responsible for stopping the forked POE::Kernel
 singleton
@@ -39,7 +45,9 @@ singleton
 
     has preamble => ( is => 'ro', isa => CodeRef, lazy_build => 1 );
 
-=attr main is: ro, isa: CodeRef, lazy_build: 1
+=attribute_public main
+
+ is: ro, isa: CodeRef, lazy_build: 1
 
 This holds the coderef that builds the actual Guts
 
@@ -47,7 +55,9 @@ This holds the coderef that builds the actual Guts
 
     has main => ( is => 'ro', isa => CodeRef, lazy_build => 1 );
 
-=attr prologue is: ro, isa: CodeRef, lazy_build: 1
+=attribute_public prologue
+
+ is: ro, isa: CodeRef, lazy_build: 1
 
 This holds the coderef that calls run() on POE::Kernel to kickstart everything
 
@@ -55,7 +65,9 @@ This holds the coderef that calls run() on POE::Kernel to kickstart everything
 
     has prologue => ( is => 'ro', isa => CodeRef, lazy_build => 1 );
 
-=attr loader is: ro, isa: CodeRef, lazy_build: 1
+=attribute_public loader
+
+ is: ro, isa: CodeRef, lazy_build: 1
 
 loader has the coderef that is used when building the POE::Wheel::Run instance
 inside of Worker's child_wheel attribute. The coderef is actually an aggregate
@@ -65,7 +77,7 @@ of init, preamble, main, and prologue.
 
     has loader => ( is => 'ro', isa => CodeRef, lazy_build => 1 );
 
-=method _build_init
+=method_protected _build_init
 
 _build_init builds the coderef used for initialization of the job classes in
 the child process.
@@ -81,7 +93,7 @@ the child process.
         };
     }
 
-=method _build_preamble
+=method_protected _build_preamble
 
 _build_preamble builds the coderef that calls stop on POE::Kernel by default.
 
@@ -95,7 +107,7 @@ _build_preamble builds the coderef that calls stop on POE::Kernel by default.
         };
     }
 
-=method _build_main
+=method_protected _build_main
 
 _build_main builds the coderef that instantiates the Guts instance without any
 arguments. If Guts has other roles applied at compile time that require extra
@@ -112,7 +124,7 @@ the constructor.
         };
     }
 
-=method _build_prologue
+=method_protected _build_prologue
 
 _build_prologue builds the coderef that calls run() on POE::Kernel by default.
 
@@ -126,7 +138,7 @@ _build_prologue builds the coderef that calls run() on POE::Kernel by default.
         };
     }
 
-=method _build_loader
+=method_protected _build_loader
 
 _build_loader builds the coderef that is passed to the POE::Wheel::Run
 constructor inside of Worker's child_wheel attribute builder. It creates a
@@ -144,7 +156,6 @@ executes said coderefs in that order.
 
         return sub
         {
-            $DB::single = 1;
             $init->();
             $preamble->();
             $main->();

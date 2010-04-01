@@ -33,7 +33,9 @@ role POEx::WorkerPool::Role::WorkerPool::Worker
     use aliased 'POEx::WorkerPool::Error::JobError';
     use aliased 'POEx::Role::Event';
 
-=attr job_classes is: ro, isa: ArrayRef[ClassName], required: 1
+=attribute_public job_classes
+
+ is: ro, isa: ArrayRef[ClassName], required: 1
 
 In order for the serializer on the other side of the process boundary to
 rebless jobs on the other side, it needs to make sure those classes are loaded.
@@ -44,7 +46,9 @@ This attribute is used to indicate which classes need to be loaded.
 
     has job_classes => ( is => 'ro', isa => ArrayRef[ClassName], required => 1);
 
-=attr uuid is: ro, isa: Str
+=attribute_public uuid
+
+ is: ro, isa: Str
 
 This attribute holds the basis for the aliases for the Worker and its PubSub.
 It defaults to Data::UUID->new()->create_str()
@@ -53,7 +57,9 @@ It defaults to Data::UUID->new()->create_str()
 
     has uuid => ( is => 'ro', isa => Str, lazy => 1, default => sub { Data::UUID->new()->create_str() } );
 
-=attr pubsub_alias is: ro, isa: Str
+=attribute_public pubsub_alias
+
+ is: ro, isa: Str
 
 This is holds the alias to the associated PubSub component for this Worker
 
@@ -62,7 +68,9 @@ This is holds the alias to the associated PubSub component for this Worker
     has pubsub_alias => ( is => 'ro', isa => Str, lazy_build => 1);
     method _build_pubsub_alias { 'Worker-PubSub:'.$self->uuid }
 
-=attr status is: rw, isa: Bool
+=attribute_public status
+
+ is: rw, isa: Bool
 
 status indicates whether the Worker is currently processing its queue.
 
@@ -70,7 +78,7 @@ status indicates whether the Worker is currently processing its queue.
 
     has status => ( is => 'rw', isa => Bool, default => 0 );
 
-=method is_[not_]active
+=method_public is_[not_]active
 
 These are convinence methods for checking the status of the Worker
 
@@ -80,7 +88,9 @@ These are convinence methods for checking the status of the Worker
     method is_not_active { return ( $self->status == 0 ) }
     method is_active { return ( $self->status == 1) }
 
-=attr _in_process is: rw, isa: DoesJob
+=attribute_private _in_process
+
+ is: rw, isa: DoesJob
 
 This private attribute holds the currently processing Job
 
@@ -88,7 +98,9 @@ This private attribute holds the currently processing Job
 
     has _in_process => ( is => 'rw', isa => DoesJob, clearer => '_clear_in_process'); 
 
-=attr _completed_jobs is: rw, isa: ScalarRef
+=attribute_private _completed_jobs
+
+ is: rw, isa: ScalarRef
 
 This private attribute is a counter to the number of completed jobs this 
 current processing cycle.
@@ -98,7 +110,9 @@ current processing cycle.
     has _completed_jobs => ( is => 'rw', isa => ScalarRef, lazy_build => 1 );
     method _build__completed_jobs { my $i = 0; \$i }
 
-=attr _failed_jobs is: rw, isa: ScalarRef
+=attrtibute_private _failed_jobs
+
+ is: rw, isa: ScalarRef
 
 This private attribute is a counter to the number of failed jobs this 
 current processing cycle.
@@ -107,35 +121,39 @@ current processing cycle.
     has _failed_jobs => ( is => 'rw', isa => ScalarRef, lazy_build => 1 );
     method _build__failed_jobs { my $i = 0; \$i }
 
-=attr metaclass: Collection::Array, is: ro, isa: ArrayRef[DoesJob]
+=attribute_public jobs
+
+ traits: Array, is: ro, isa: ArrayRef[DoesJob]
 
 This is the FIFO queue of jobs this worker is responsible for processing.
 
-The following provides are defined:
+The following handles are provided:
 
     {
-        push    => '_enqueue_job',
-        shift   => '_dequeue_job',
-        count   => 'count_jobs',
+        _enqueue_job => 'push',
+        _dequeue_job => 'shift',
+        count_jobs => 'count',
     }
 
 =cut
 
     has jobs => 
     (
-        metaclass => 'Collection::Array',
+        traits => ['Array'],
         is => 'ro', 
         isa => ArrayRef[DoesJob], 
         default => sub { [] },
-        provides =>
+        handles =>
         {
-            push    => '_enqueue_job',
-            shift   => '_dequeue_job',
-            count   => 'count_jobs',
+            _enqueue_job => 'push',
+            _dequeue_job => 'shift',
+            count_jobs => 'count',
         }
     );
 
-=attr max_jobs is: ro, isa: Int
+=attribute_public max_jobs
+
+ is: ro, isa: Int
 
 This determines the fill mark for the job queue.
 
@@ -143,7 +161,9 @@ This determines the fill mark for the job queue.
 
     has max_jobs => ( is => 'ro', isa => Int, default => 5 );
 
-=attr child_wheel is: ro, isa: Wheel
+=attribute_protected child_wheel
+
+ is: ro, isa: Wheel
 
 child_wheel holds this Worker's POE::Wheel::Run instance
 
@@ -152,7 +172,6 @@ child_wheel holds this Worker's POE::Wheel::Run instance
     has child_wheel => ( is => 'ro', isa => Wheel, lazy_build => 1 );
     method _build_child_wheel
     {
-        $DB::single = 1;
         my $wheel = POE::Wheel::Run->new
         (
             Program => $self->guts_loader->loader,
@@ -165,10 +184,20 @@ child_wheel holds this Worker's POE::Wheel::Run instance
         return $wheel;
     }
 
+=attribute_protected guts_loader
+
+ is: ro, isa: GutsLoader
+
+guts_loader holds the instance of the GutsLoader used as the Program for the child_wheel
+
+=cut
+
     has guts_loader => ( is => 'ro', isa => class_type(GutsLoader), lazy_build => 1);
     method _build_guts_loader { return GutsLoader->new(job_classes => $self->job_classes); }
 
-=method guts_error_handler(Str $op, Int $error_num, Str $error_str, WheelID $id, Str $handle_name) is Event
+=method_protected guts_error_handler
+
+ (Str $op, Int $error_num, Str $error_str, WheelID $id, Str $handle_name) is Event
 
 guts_error_handler is the handler given to POE::Wheel::Run to handle errors
 that may crop up during operation of the wheel. It will post the arguments via
@@ -207,7 +236,9 @@ to rebuild after exiting
         $self->child_wheel()->kill();
     }
 
-=method guts_exited(Str $chld, Int $pid, Int $exit_val) is Event
+=method_protected guts_exited
+
+ (Str $chld, Int $pid, Int $exit_val) is Event
 
 This is the SIGCHLD handler for the child process. It will post the arguments
 via +PXWP_WORKER_CHILD_EXIT using PubSub.
@@ -238,7 +269,9 @@ The wheel will then cleared
         $self->clear_child_wheel();
     }
 
-=method after _start is Event
+=method_protected after _start
+
+ is Event
 
 _start is advised to create a new PubSub component specific for this Worker and
 publish all of the various events that the Worker can fire.
@@ -270,7 +303,9 @@ publish all of the various events that the Worker can fire.
         $self->child_wheel();
     }
 
-=method after _stop is Event
+=method_protected after _stop
+
+ is Event
 
 _stop is advised to terminate the associated PubSub component by calling its
 destroy event.
@@ -282,7 +317,9 @@ destroy event.
         $self->call($self->pubsub_alias, 'destroy');
     }
 
-=method enqueue_job(DoesJob $job)
+=method_public enqueue_job
+
+ (DoesJob $job)
 
 enqueue_job takes an object with the Job role and places it into the queue
 after a few basic checks, such as if the Worker is currently processing or if
@@ -324,7 +361,9 @@ Subscribers will need to have the following signature:
         }
     }
 
-=method enqueue_jobs(ArrayRef[DoesJob] $jobs)
+=method_public enqueue_jobs
+
+ (ArrayRef[DoesJob] $jobs)
 
 enqueue_jobs does the same thing as enqueue_job, but it acts on an array of
 jobs. Each job successfully enqueued means the worker will fire the 
@@ -356,7 +395,9 @@ jobs. Each job successfully enqueued means the worker will fire the
         }
     }
 
-=method start_processing
+=method_public start_processing
+
+ is Event
 
 start_processing kicks the Worker into gear and prevents adding jobs until the
 crrent queue has been processed. If there are no jobs in the queue, StartError
@@ -388,7 +429,9 @@ Subscribers should have the following signature:
         $kernel->post($self->ID, '_process_queue');
     }
 
-=method _process_queue is Event
+=method_private _process_queue
+
+ is Event
 
 This private event is the queue processor. As jobs are dequeued for processing,
 +PXWP_JOB_DEQUEUED will be fired via PubSub. Subscribers will need the
@@ -442,7 +485,9 @@ Worker may again accept jobs.
         }
     }
 
-=method _process_job(DoesJob $job) is Event
+=method_private _process_job
+
+ (DoesJob $job) is Event
 
 This private event takes the given job and feeds it to the child process to be
 processed. If the child process doesn't exist for whatever reason, 
@@ -473,14 +518,15 @@ This event also places the given job into the _in_process attribute.
         $self->child_wheel->put($job);
     }
 
-=method guts_output(JobStatus $job_status) is Event
+=method_protected guts_output
+
+ (JobStatus $job_status) is Event
 
 This is the StdoutEvent for the child POE::Wheel::Run. It handles all of the
 child output which is in the form of JobStatus hashrefs. The following 
 describes the potential events from the child and the actions taken
 
-    Type: 
-        +PXWP_JOB_COMPLETE
++PXWP_JOB_COMPLETE
     
     Action: 
         _in_process is cleared and _completed_jobs for this session is
@@ -495,9 +541,8 @@ describes the potential events from the child and the actions taken
     Notes:
         The :$msg argument will contain the output from the Job's execution
         
-    
-    Type: 
-        +PXWP_JOB_PROGRESS
+
++PXWP_JOB_PROGRESS
     
     Action: 
         PubSub event posted.
@@ -519,8 +564,7 @@ describes the potential events from the child and the actions taken
         for multi-step jobs
     
     
-    Type: 
-        +PXWP_JOB_FAILED
++PXWP_JOB_FAILED
     
     Action: 
         _in_process is cleared and _failed_jobs for this session is
@@ -536,8 +580,7 @@ describes the potential events from the child and the actions taken
         The :$msg argument will contain the exception generated from the Job
     
 
-    Type: 
-        +PXWP_JOB_START
++PXWP_JOB_START
     
     Action: 
         PubSub event posted.
@@ -629,7 +672,9 @@ describes the potential events from the child and the actions taken
         }
     }
 
-=method halt is Event
+=method_public halt
+
+ is Event
 
 halt will destroy the child process, and unset the associated alias ensuring 
 that the Session will stop
@@ -643,7 +688,9 @@ that the Session will stop
         $self->clear_alias();
     }
 
-=method die_signal_handler(Str $sig, HashRef) is Event
+=method_protected die_signal_handler
+
+ (Str $sig, HashRef) is Event
 
 This is the handler for any exceptions that are thrown. All exceptions will be
 relayed to the consumer via a PubSub published event: +PXWP_WORKER_ERROR

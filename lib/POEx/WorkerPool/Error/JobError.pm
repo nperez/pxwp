@@ -8,7 +8,9 @@ class POEx::WorkerPool::Error::JobError extends POEx::WorkerPool::Error
 {
     use POEx::WorkerPool::Types(':all');
 
-=attr job is: ro, isa: DoesJob
+=attribute_public job 
+
+ is: ro, isa: DoesJob
 
 This contains the job that errored
 
@@ -16,7 +18,9 @@ This contains the job that errored
 
     has job => ( is => 'ro', isa => DoesJob, required => 1 ); 
     
-=attr job_status is:ro, isa: JobStatus
+=attribute_public job_status 
+
+ is:ro, isa: JobStatus
 
 This contains the useful information captured from the try block around the job
 during execution of the previous step

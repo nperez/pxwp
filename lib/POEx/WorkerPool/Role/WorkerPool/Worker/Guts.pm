@@ -31,7 +31,9 @@ role POEx::WorkerPool::Role::WorkerPool::Worker::Guts
     has current_job => ( is => 'rw', isa => DoesJob );
 
 
-=method after _start is Event
+=method_protected after _start
+
+ is Event
 
 _start is advised to buid the communication wheel back to the parent process
 and also register a signal handler for DIE so we can communicate exceptions
@@ -53,7 +55,9 @@ back to the parent
         $self->poe->kernel->sig( 'DIE' => 'die_signal');
     }
 
-=method init_job(DoesJob $job, WheelID $wheel) is Event
+=method_protected init_job
+
+ (DoesJob $job, WheelID $wheel) is Event
 
 init_job is the InputEvent on the ReadWrite wheel that accepts input from the
 parent process. It attempts to call ->init_job on the job it receives. If that
@@ -78,7 +82,9 @@ and yield to process_job()
         }
     }
 
-=method process_job(DoesJob $job) is Event
+=method_public process_job
+
+ (DoesJob $job) is Event
 
 process_job takes the initialized job and calls ->execute_step on the job. If
 there is more than one step, another process_job will be queued up via POE with
@@ -112,7 +118,9 @@ is then sent on to send_message which communicates with the parent process
         }
     }
 
-=method send_message(JobStatus $status) is Event
+=method_public send_message
+
+ (JobStatus $status) is Event
 
 send_messge communicates with the parent process each JobStatus it receives.
 
@@ -128,7 +136,9 @@ send_messge communicates with the parent process each JobStatus it receives.
         $self->host()->put($status);
     }
 
-=method die_signal(Str $signal, HashRef $stuff) is Event
+=method_protected die_signal
+
+ (Str $signal, HashRef $stuff) is Event
 
 die_signal is our signal handler if something unexpected happens.
 

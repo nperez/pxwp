@@ -20,7 +20,9 @@ role POEx::WorkerPool::Role::Job
 
     requires 'init_job';
 
-=attr ID is: ro, isa: Str
+=attribute_public ID
+
+ is: ro, isa: Str
 
 This attribute stores the unique ID for the job. By default it uses 
 Data::UUID::create_str()
@@ -29,12 +31,14 @@ Data::UUID::create_str()
 
     has ID => ( is => 'ro', isa => Str, lazy => 1, default => sub { Data::UUID->new()->create_str() } );
 
-=attr steps metaclass: Collection::Array, is: ro, isa: ArrayRef[JobStep]
+=attribute_public steps 
+
+ traits: Array, is: ro, isa: ArrayRef[JobStep]
 
 This attribute stores the steps for the job. All jobs must have one step before
 execution or else a JobError exception will be thrown.
 
-The following provides are defined to access the steps of the job:
+The following handles are defined to access the steps of the job:
 
     {
         push    => '_enqueue_step',
@@ -46,23 +50,33 @@ The following provides are defined to access the steps of the job:
 
     has steps => 
     (
-        metaclass => 'Collection::Array',
+        traits => ['Array'],
         is => 'rw', 
         isa => ArrayRef[JobStep],
         default => sub { [] },
-        provides =>
+        handles =>
         {
-            push    => '_enqueue_step',
-            shift   => 'dequeue_step',
-            count   => 'count_steps',
+            _enqueue_step => 'push',
+            dequeue_step => 'shift',
+            count_steps => 'count',
         }
     );
 
-    has total_steps => ( is => 'rw', isa => ScalarRef, lazy_build => 1 );
+=attribute_protected total_steps
+
+ is: ro, isa: ScalarRef
+
+ total_steps contains a scalar ref of the count of the total number of steps
+
+=cut
+
+    has total_steps => ( is => 'ro', isa => ScalarRef, lazy_build => 1 );
     method _build_total_steps { my $i = 0; \$i; }
 
 
-=method enqueue_step(JobStep $step)
+=method_public  enqueue_step
+
+ (JobStep $step)
 
 enqueue_step takes a JobStep and places it into the steps collection and also 
 increments the total_steps counter.
@@ -75,7 +89,9 @@ increments the total_steps counter.
         ${$self->total_steps}++;
     }
     
-=method is_multi_step returns (Bool)
+=method_public is_multi_step 
+
+ returns (Bool)
 
 A simple convenience method to check if the job has multiple steps
 
@@ -86,7 +102,9 @@ A simple convenience method to check if the job has multiple steps
         return (${$self->total_steps} > 1);
     }
 
-=method execute_step returns (JobStatus)
+=method_public execute_step 
+
+ returns (JobStatus)
 
 execute_step dequeues a step from steps and executes it, building a proper 
 JobStatus return value. If executing the step produces an exception, the
@@ -145,13 +163,13 @@ __END__
 
 =head1 SYNOPSIS
 
-class MyJob with POEx::WorkerPool::Role::Job
-{
-    method init_job
+    class MyJob with POEx::WorkerPool::Role::Job
     {
-        # Implement job initialization across the process boundary here
+        method init_job
+        {
+            # Implement job initialization across the process boundary here
+        }
     }
-}
 
 =head1 DESCRIPTION
 

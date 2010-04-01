@@ -8,11 +8,12 @@ class POEx::WorkerPool::Error with Throwable
 {
     use MooseX::Types::Moose(':all');
 
-=attr message is: ro, isa: Str, required: 1
+=attribute_public message is: ro, isa: Str, required: 1
 
 A human readable error message
 
 =cut
+
     has message => ( is => 'ro', isa => Str, required => 1);
 }
 
