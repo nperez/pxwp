@@ -1,6 +1,7 @@
 Revision history for POEx-WorkerPool: {{ $dist->version }}
 
 {{ $NEXT }}
+        AutoPrereq doesn't catch MXD class decorators, yet :)
 
 1.100910  2010-04-01 02:50:14 America/Chicago
         Revamp distribution and docs to make use of modern Dist::Zilla tools (such as Pod::Weaver)
