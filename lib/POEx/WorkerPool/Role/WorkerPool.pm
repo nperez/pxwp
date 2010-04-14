@@ -103,7 +103,7 @@ This attribute holds all of the workers in the pool
                 (
                     job_classes => $self->job_classes,
                     max_jobs => $self->max_jobs_per_worker,
-                    options => $self->options,
+                    ($self->options ? (options => $self->options) : ()),
                 ) 
             );
         }

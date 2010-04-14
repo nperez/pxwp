@@ -1,6 +1,9 @@
 Revision history for POEx-WorkerPool: {{ $dist->version }}
 
 {{ $NEXT }}
+        Make the options passing to Worker be optional if there are no session options
+
+1.100960  2010-04-06 03:57:51 America/Chicago
         AutoPrereq doesn't catch MXD class decorators, yet :)
 
 1.100910  2010-04-01 02:50:14 America/Chicago
