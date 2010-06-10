@@ -1,6 +1,12 @@
 Revision history for POEx-WorkerPool: {{ $dist->version }}
 
 {{ $NEXT }}
+
+1.101610  2010-06-10 13:43:35 America/Chicago
+        Implement the OpenEndedWorker trait for Worker
+        current_job context wasn't needed in Guts
+
+1.101040  2010-04-14 15:49:07 America/Chicago
         Make the options passing to Worker be optional if there are no session options
 
 1.100960  2010-04-06 03:57:51 America/Chicago

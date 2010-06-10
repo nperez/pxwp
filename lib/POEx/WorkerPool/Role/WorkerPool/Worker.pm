@@ -267,6 +267,7 @@ The wheel will then cleared
         );
 
         $self->clear_child_wheel();
+        $self->clear_alias();
     }
 
 =method_protected after _start
@@ -302,7 +303,6 @@ publish all of the various events that the Worker can fire.
 
         $self->child_wheel();
     }
-
 =method_protected after _stop
 
  is Event
@@ -316,6 +316,7 @@ destroy event.
     {
         $self->call($self->pubsub_alias, 'destroy');
     }
+
 
 =method_public enqueue_job
 
@@ -683,7 +684,6 @@ that the Session will stop
 
     method halt is Event
     {
-        POE::Kernel->sig_child($self->child_wheel->PID);
         $self->child_wheel->kill();
         $self->clear_alias();
     }

@@ -196,7 +196,7 @@ POEx::WorkerPool::Error::NoAvailableWorkers exception.
         }
     }
 
-=method_public queue_job
+=method_public enqueue_job
 
  (DoesJob $job) returns (SessionAlias)
 

@@ -28,9 +28,6 @@ role POEx::WorkerPool::Role::WorkerPool::Worker::Guts
     # As of POE v1.266 Wheel::ReadWrite does not subclass from POE::Wheel. bleh
     has host => ( is => 'rw', isa => Object );
 
-    has current_job => ( is => 'rw', isa => DoesJob );
-
-
 =method_protected after _start
 
  is Event
@@ -71,7 +68,6 @@ and yield to process_job()
         try
         {
             $job->init_job();
-            $self->current_job($job);
             $self->yield('send_message', { ID => $job->ID, type => +PXWP_JOB_START, msg => \time() });
             $self->yield('process_job', $job);
             return $job;
@@ -146,7 +142,7 @@ die_signal is our signal handler if something unexpected happens.
 
     method die_signal(Str $signal, HashRef $stuff) is Event
     {
-        $self->call($self, 'send_message', { ID => $self->current_job->ID, type => +PXWP_WORKER_INTERNAL_ERROR, msg => $stuff });
+        $self->call($self, 'send_message', { ID => 0, type => +PXWP_WORKER_INTERNAL_ERROR, msg => $stuff });
     }
 }
 
